@@ -1,5 +1,5 @@
-import requests
-from dotenv import load_dotenv
+import requests  # type: ignore
+from dotenv import load_dotenv  # type: ignore
 import os
 
 # Load environment variables from .env file
@@ -36,6 +36,15 @@ def main():
         print(f"Weather in {city_name}: {weather_data['weather'][0]['description'].capitalize()}")
         print(f"Temperature: {weather_data['main']['temp']}°C")
         print(f"Humidity: {weather_data['main']['humidity']}%")
+        print(f"Wind Speed: {weather_data['wind']['speed']} m/s")
+        print(f"Visibility: {weather_data['visibility'] / 1000} km")
+        print(f"Cloudiness: {weather_data['clouds']['all']}%")
+        print(f"Sunrise: {weather_data['sys']['sunrise']} (Unix timestamp)")
+        print(f"Sunset: {weather_data['sys']['sunset']} (Unix timestamp)")
+        print(f"fog: {weather_data.get('fog', 'No fog data available')}")
+        print(f"rain: {weather_data.get('rain', 'No rain data available')}")
+    else:
+        print("Failed to retrieve weather data. Please try again.")
 
 if __name__ == "__main__":
     main()
