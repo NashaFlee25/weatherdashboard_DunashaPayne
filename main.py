@@ -1,5 +1,5 @@
-import requests  # type: ignore
-from dotenv import load_dotenv  # type: ignore
+import requests  
+from dotenv import load_dotenv 
 import os
 import tkinter as tk
 from tkinter import messagebox
