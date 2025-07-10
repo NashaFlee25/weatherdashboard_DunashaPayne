@@ -3,6 +3,7 @@ from dotenv import load_dotenv  # type: ignore
 import os
 import tkinter as tk
 from tkinter import messagebox
+import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -25,6 +26,15 @@ def fetch_weather(city_name, api_key):
         print(f"Error: Unable to fetch weather data (Status Code: {response.status_code})")
         return None
 
+# Function to save user settings/data to a JSON file
+def save_user_settings(settings, filename="user_settings.json"):
+    try:
+        with open(filename, "w") as file:
+            json.dump(settings, file, indent=4)
+        print(f"Settings saved to {filename}")
+    except Exception as e:
+        print(f"Error saving settings: {e}")
+
 # Function to display weather data in the GUI
 def display_weather():
     city_name = city_entry.get()
@@ -39,6 +49,8 @@ def display_weather():
 
     weather_data = fetch_weather(city_name, api_key)
     if weather_data:
+        # Save the last searched city to user settings
+        save_user_settings({"last_searched_city": city_name})
         result_text.set(
             f"Weather in {city_name}: {weather_data['weather'][0]['description'].capitalize()}\n"
             f"Temperature: {weather_data['main']['temp']}°C\n"
