@@ -1,1 +1,8 @@
-This folder is for storing saved CSV or text files related to the Weather Dashboard project.
+# Data Directory
+
+This directory contains application data files:
+
+- `settings.json`: User preferences and API key
+- `weather_history.json`: Log of previous weather lookups
+
+These files are automatically created when the application runs.
