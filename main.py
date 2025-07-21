@@ -73,11 +73,12 @@ class WeatherDashboard:
             return
 
         weather_data = self.weather_api.fetch_weather(city_name)
-        if weather_data:
-            self.user_settings.save({"last_searched_city": city_name})
-            self.result_text.set(self.format_weather_data(city_name, weather_data))
-        else:
-            self.result_text.set("Failed to retrieve weather data. Please try again.")
+        if not weather_data:
+            messagebox.showerror("Error", "City not found. Please try again.")
+            return
+
+        self.user_settings.save({"last_searched_city": city_name})
+        self.result_text.set(self.format_weather_data(city_name, weather_data))
 
     def format_weather_data(self, city_name: str, weather_data: Dict[str, Any]) -> str:
         try:
