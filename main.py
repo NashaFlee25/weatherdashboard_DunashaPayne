@@ -5,6 +5,8 @@ import tkinter as tk
 from tkinter import messagebox
 import json
 from typing import Optional, Dict, Any
+import csv
+from datetime import datetime
 
 # Load environment variables from .env file
 load_dotenv()
@@ -66,6 +68,26 @@ class WeatherDashboard:
         self.root = tk.Tk()
         self.result_text = tk.StringVar()
 
+    def log_weather_data(self, city_name: str, weather_data: Dict[str, Any]) -> None:
+        log_file = "weather_log.csv"
+        file_exists = os.path.exists(log_file)
+        
+        try:
+            with open(log_file, 'a', newline='') as f:
+                writer = csv.writer(f)
+                if not file_exists:
+                    writer.writerow(['Date', 'City', 'Temperature', 'Description'])
+                
+                current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                writer.writerow([
+                    current_date,
+                    city_name,
+                    weather_data['main']['temp'],
+                    weather_data['weather'][0]['description']
+                ])
+        except IOError as e:
+            print(f"Error writing to log file: {e}")
+
     def display_weather(self) -> None:
         city_name = self.city_entry.get().strip()
         if not city_name:
@@ -78,6 +100,7 @@ class WeatherDashboard:
             return
 
         self.user_settings.save({"last_searched_city": city_name})
+        self.log_weather_data(city_name, weather_data)
         self.result_text.set(self.format_weather_data(city_name, weather_data))
 
     def format_weather_data(self, city_name: str, weather_data: Dict[str, Any]) -> str:
