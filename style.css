@@ -1,0 +1,21 @@
+// ...existing code...
+.btn-star {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #gray;
+    cursor: pointer;
+    padding: 5px;
+}
+
+.btn-star.active {
+    color: gold;
+}
+
+#favoritesDropdown {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}

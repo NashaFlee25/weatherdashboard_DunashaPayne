@@ -27,6 +27,8 @@ class WeatherAPI:
         except requests.exceptions.HTTPError as http_err:
             if response.status_code == 401:
                 print("Error: Invalid API key. Please check your API key in the .env file.")
+            elif response.status_code == 404:
+                messagebox.showerror("Error", f"City '{city_name}' not found. Please check the spelling and try again.")
             else:
                 print(f"HTTP error occurred: {http_err}")
         except requests.exceptions.RequestException as req_err:
