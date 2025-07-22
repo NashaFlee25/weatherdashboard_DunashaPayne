@@ -1,22 +1,18 @@
 import requests
 from typing import Dict, Any, Optional
-from ..config.config import API_KEY
+from ..config.config import API_KEY, BASE_URL
 
 class WeatherAPI:
-    def __init__(self):
-        self.api_key = API_KEY
-        self.base_url = "http://api.openweathermap.org/data/2.5/weather"
-
-    def get_weather(self, city: str) -> Optional[Dict[str, Any]]:
+    def fetch_weather(self, city: str) -> Optional[Dict[str, Any]]:
         params = {
             'q': city,
-            'appid': self.api_key,
+            'appid': API_KEY,
             'units': 'metric'
         }
+        
         try:
-            response = requests.get(self.base_url, params=params)
+            response = requests.get(BASE_URL, params=params)
             response.raise_for_status()
             return response.json()
-        except requests.exceptions.RequestException as e:
-            print(f"Error fetching weather data: {e}")
+        except requests.RequestException:
             return None
