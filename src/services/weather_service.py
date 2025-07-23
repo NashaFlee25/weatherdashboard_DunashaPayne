@@ -1,13 +1,25 @@
+import requests
+import os
+from dotenv import load_dotenv
 from typing import Optional, Dict, Any
-from ..api.weather_api import WeatherAPI
 
 class WeatherService:
     def __init__(self):
-        self.api = WeatherAPI()
+        load_dotenv()
+        self.api_key = os.getenv('OPENWEATHER_API_KEY')
+        self.base_url = "http://api.openweathermap.org/data/2.5/weather"
 
     def get_weather_data(self, city: str) -> Optional[Dict[str, Any]]:
-        data = self.api.fetch_weather(city)
-        if data:
+        try:
+            params = {
+                'q': city,
+                'appid': self.api_key,
+                'units': 'metric'
+            }
+            response = requests.get(self.base_url, params=params)
+            response.raise_for_status()
+            
+            data = response.json()
             return {
                 'city': data['name'],
                 'temperature': round(data['main']['temp']),
@@ -15,4 +27,6 @@ class WeatherService:
                 'humidity': data['main']['humidity'],
                 'wind_speed': data['wind']['speed']
             }
-        return None
+        except Exception as e:
+            print(f"Error fetching weather data: {e}")
+            return None
