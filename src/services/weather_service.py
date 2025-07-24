@@ -8,7 +8,7 @@ from src.config.config import Config
 class WeatherService:
     def __init__(self):
         load_dotenv()
-        self.API_KEY = os.getenv('OPENWEATHER_API_KEY')
+        self.API_KEY = os.getenv('API_KEY')
         self.base_url = "http://api.openweathermap.org/data/2.5/weather"
 
     def get_weather_data(self, city: str) -> Optional[Dict[str, Any]]:
