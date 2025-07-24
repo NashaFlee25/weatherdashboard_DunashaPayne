@@ -1,5 +1,5 @@
-from weather_logger import log_weather_data
-from settings_manager import SettingsManager
+from Backup.weather_logger import log_weather_data
+from Backup.settings_manager import SettingsManager
 
 class WeatherApp:
     def __init__(self):
