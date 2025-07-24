@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import messagebox
 from src.services.weather_service import WeatherService
 from src.config.settings_manager import SettingsManager
+from features.tracker import save_weather_to_csv
+
 
 class WeatherDashboard:
     def __init__(self):
@@ -48,6 +50,13 @@ class WeatherDashboard:
             f"Humidity: {weather_data['humidity']}%\n"
             f"Wind Speed: {weather_data['wind_speed']} m/s"
         )
+        save_weather_to_csv(
+    weather_data['city'],
+    weather_data['temperature'],
+    weather_data['description']
+)
+        messagebox.showinfo("Success", "Weather data saved successfully.")
+
 
 def main():
     app = WeatherDashboard()
