@@ -9,14 +9,12 @@ import random
 import threading
 import tkinter.font as tkFont
 from datetime import date, datetime
-import ttkbootstrap as ttk_bs
-from ttkbootstrap.constants import DANGER, DARK, INFO, LIGHT, PRIMARY, SECONDARY
 from src.config.settings_manager import SettingsManager
 
 class GUIIcons:   
     """weather condtion Icons using Unicode characters"""
 
-    CLEAR = "clear_sky_icon
+    CLEAR = "clear_sky_icon"
     PARTLY_CLOUDY = "few_clouds_icon"
     CLOUDY = "scattered_clouds_icon"
     OVERCAST = "overcast_clouds_icon"
