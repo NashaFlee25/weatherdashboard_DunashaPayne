@@ -11,22 +11,23 @@ import tkinter.font as tkFont
 from datetime import date, datetime
 from src.config.settings_manager import SettingsManager
 
-class GUIIcons:   
-    """weather condtion Icons using Unicode characters"""
+class GUIIcons:
+    """Weather condition icons using Unicode characters"""
 
-    CLEAR = "clear_sky_icon"
-    PARTLY_CLOUDY = "few_clouds_icon"
-    CLOUDY = "scattered_clouds_icon"
-    OVERCAST = "overcast_clouds_icon"
-    RAIN = "rain_icon"
-    HEAVY_RAIN = "shower_rain_icon"
-    SNOW = "snow_icon"
-    FOG = "mist_icon"
-    WIND = "wind_icon"
-    HOT = "hot_icon"
-    COLD = "cold_icon"
-    DEFAULT = "default_icon"
-
+    CLEAR = "☀️"              # Clear sky
+    PARTLY_CLOUDY = "🌤️"      # Few clouds
+    CLOUDY = "⛅"              # Scattered clouds
+    OVERCAST = "☁️"           # Overcast clouds
+    RAIN = "🌧️"               # Rain
+    HEAVY_RAIN = "🌦️"         # Shower rain
+    SNOW = "❄️"               # Snow
+    FOG = "🌫️"                # Mist / Fog
+    WIND = "💨"               # Wind
+    HOT = "🔥"                # Hot
+    COLD = "🧊"               # Cold
+    DEFAULT = "❔"            # Default / Unknown
+    THUNDERSTORM = "⛈️"      # Thunderstorm
+    
     @classmethod
     def get_icon(cls, condition: str, temperture: Optional[float] = None) -> str:
         condition = condition.lower()
