@@ -62,20 +62,20 @@
 
 **Main App Folders:**
 
-* `main.py` – where the app starts
-* `config.py` – holds settings and keys
-* `data/` – for saving files like logs or user settings
-* `features/` – where all feature code lives
+* `src/main.py` – where the app starts
+* `src/config.py` – holds settings and keys
+* `src/data/` – for saving files like logs or user settings
+* `src/features/` – where all feature code lives
 
 **Feature Files:**
 
-* `city_comparison.py`
-* `weather_icons.py`
-* `theme_switcher.py`
+* `src/features/city_comparison.py`
+* `src/features/weather_icons.py`
+* `src/features/theme_switcher.py`
 
 **How Things Work Together:**
 
-* `main.py` pulls from each feature as needed.
+* `src/main.py` pulls from each feature as needed.
 * API data is handled in a helper file.
 * UI updates in real time when data comes in or user clicks something.
 
@@ -125,12 +125,12 @@
 
 ## ✅ **Section 8: Before Monday**
 
-* ✅ Pushed `main.py`, `config.py`, and `data/` folder to my repo
+* ✅ Pushed `src/main.py`, `src/config.py`, and `src/data/` folder to my repo
 * ✅ Added API key to `.env` file (not committed)
 * ✅ Created feature files for:
 
-  * `city_comparison.py`
-  * `weather_icons.py`
-  * `theme_switcher.py`
+  * `src/features/city_comparison.py`
+  * `src/features/weather_icons.py`
+  * `src/features/theme_switcher.py`
 * ✅ Started my `README.md` file
 * ☐ Will book office hours if anything gets confusing

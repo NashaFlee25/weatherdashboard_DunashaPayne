@@ -35,14 +35,10 @@ Backup/
 *.bak
 *.tmp
 
-# Development artifacts
-weather_preferences.json
-theme_config.json
-team_weather.csv
-weather_dashboard.log
+# Development artifacts - now in src structure
+src/data/weather_preferences.json
+src/data/theme_config.json
+src/data/team_weather.csv
+src/data/weather_dashboard.log
 
-# Redundant UI files (keeping clean architecture)
-src/tabbed_weather_app.py
-src/ui_dashboard.py
-src/tab_main.py
-src/app/weather_dashboard.py
+# Remove old duplicate references - these are now organized in src/
