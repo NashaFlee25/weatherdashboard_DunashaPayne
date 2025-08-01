@@ -1,1 +1,3 @@
-This folder is for storing images and screenshots related to the Weather Dashboard project.
+# Screenshots
+
+This folder contains project screenshots and documentation images.
