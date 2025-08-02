@@ -1,108 +1,101 @@
-"""
-Weather Dashboard Application - Main Entry Point
+import tkinter as tk
+from tkinter import messagebox
 
-Clean architecture implementation with proper separation of concerns.
-"""
-
-import sys
-import os
-import logging
-from typing import Optional
-
-# Add src directory to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
-
-from src.infrastructure.config.settings import WeatherConfig, UIConfig, AppConfig
-from src.infrastructure.repositories.weather_repository import WeatherRepository
-from src.infrastructure.repositories.settings_repository import SettingsRepository
-from src.application.services.weather_service import WeatherService
-from src.presentation.controllers.weather_controller import WeatherController
-from src.presentation.main_window import MainWindow
+from src.services.weather_service import WeatherService
+from src.config.settings_manager import SettingsManager
+from features.tracker import save_weather_to_csv
+from gui_icons import GUIIcons
 
 
-def setup_logging(log_level: str = "INFO"):
-    """Setup application logging."""
-    logging.basicConfig(
-        level=getattr(logging, log_level.upper()),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.FileHandler('weather_dashboard.log'),
-            logging.StreamHandler(sys.stdout)
-        ]
-    )
 
+class WeatherDashboard:
+    """
+    Weather Dashboard GUI application using Tkinter.
+    """
+    WINDOW_TITLE = "Weather Dashboard"
+    WINDOW_SIZE = "500x300"
 
-def create_app_config() -> Optional[AppConfig]:
-    """Create application configuration."""
-    try:
-        settings_repo = SettingsRepository()
-        api_key = settings_repo.get_api_key()
-        
-        if not api_key:
-            print("Error: OpenWeather API key not found.")
-            print("Please set OPENWEATHER_API_KEY environment variable or configure in settings.")
-            return None
-        
-        weather_config = WeatherConfig(
-            api_key=api_key,
-            temperature_units=settings_repo.get_default_units()
+    def __init__(self):
+        self.weather_service = WeatherService()
+        self.settings = SettingsManager()
+        self.root = tk.Tk()
+        self.result_text = tk.StringVar()
+        self.icon_text = tk.StringVar()
+        self._setup_gui()
+
+    def _setup_gui(self):
+        """Set up the main GUI components."""
+        self.root.title(self.WINDOW_TITLE)
+        self.root.geometry(self.WINDOW_SIZE)
+
+        tk.Label(self.root, text="Enter City Name:").grid(row=0, column=0, padx=10, pady=10)
+        self.city_entry = tk.Entry(self.root, width=30)
+        self.city_entry.grid(row=0, column=1, padx=10, pady=10)
+
+        tk.Button(self.root, text="Get Weather", command=self.display_weather).grid(row=1, column=0, columnspan=2, pady=10)
+
+        # Weather icon label
+        self.icon_label = tk.Label(self.root, textvariable=self.icon_text, font=("Arial", 32))
+        self.icon_label.grid(row=2, column=0, padx=10, pady=10)
+
+        tk.Label(self.root, textvariable=self.result_text, justify="left", wraplength=400).grid(row=2, column=1, padx=10, pady=10)
+
+        last_city = self.settings.get_last_city()
+        if last_city:
+            self.city_entry.insert(0, last_city)
+
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def display_weather(self):
+        """Fetch and display weather data for the entered city."""
+        city_name = self.city_entry.get().strip()
+        if not city_name:
+            messagebox.showerror("Error", "Please enter a city name.")
+            return
+        try:
+            weather_data = self.weather_service.get_weather_data(city_name)
+        except Exception as e:
+            messagebox.showerror("Error", f"An error occurred: {e}")
+            return
+
+        if weather_data:
+            self.settings.set_last_city(city_name)
+            self._update_display(weather_data)
+        else:
+            messagebox.showerror("Error", "Could not fetch weather data. Please try again.")
+
+    def _update_display(self, weather_data):
+        """Update the result label, weather icon, and save weather data to CSV."""
+        # Get icon for current weather
+        icon = GUIIcons.get_icon(weather_data.get('description', ''), weather_data.get('temperature'))
+        self.icon_text.set(icon)
+        self.result_text.set(
+            f"Weather in {weather_data['city']}:\n"
+            f"Temperature: {weather_data['temperature']}°C\n"
+            f"Description: {weather_data['description']}\n"
+            f"Humidity: {weather_data['humidity']}%\n"
+            f"Wind Speed: {weather_data['wind_speed']} m/s"
         )
-        
-        ui_config = UIConfig()
-        
-        return AppConfig(
-            weather=weather_config,
-            ui=ui_config
-        )
-    except Exception as e:
-        print(f"Error creating app configuration: {e}")
-        return None
+        try:
+            save_weather_to_csv(
+                weather_data['city'],
+                weather_data['temperature'],
+                weather_data['description']
+            )
+            messagebox.showinfo("Success", "Weather data saved successfully.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save weather data: {e}")
 
+    def _on_close(self):
+        """Handle application close event."""
+        self.root.destroy()
 
-def create_dependencies(config: AppConfig):
-    """Create and wire up dependencies."""
-    # Repositories
-    settings_repo = SettingsRepository()
-    weather_repo = WeatherRepository(config.weather)
-    
-    # Services
-    weather_service = WeatherService(weather_repo, settings_repo)
-    
-    # Controllers
-    weather_controller = WeatherController(weather_service)
-    
-    # Main Window
-    main_window = MainWindow(weather_controller, settings_repo, config.ui)
-    
-    return main_window
 
 
 def main():
-    """Main entry point for the Weather Dashboard application."""
-    try:
-        # Setup logging
-        setup_logging()
-        logger = logging.getLogger(__name__)
-        logger.info("Starting Weather Dashboard Application")
-        
-        # Create configuration
-        config = create_app_config()
-        if not config:
-            sys.exit(1)
-        
-        # Create dependencies
-        main_window = create_dependencies(config)
-        
-        # Create and run the application
-        root = main_window.create_window()
-        logger.info("Application window created successfully")
-        
-        main_window.run()
-        
-    except Exception as e:
-        logging.error(f"Error starting application: {e}")
-        sys.exit(1)
-
+    """Main entry point for the Weather Dashboard app."""
+    app = WeatherDashboard()
+    app.root.mainloop()
 
 if __name__ == "__main__":
     main()

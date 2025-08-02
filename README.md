@@ -1,22 +1,38 @@
-# weatherdashboard_DunashaPayne 🌦️
+# Weather Dashboard Application
 
-## Project Description 📋
-This project is a weather dashboard application that allows users to view current weather conditions and forecasts for various locations. It provides access to weather data in real-time.
+A Python GUI weather dashboard using CustomTkinter, ttkbootstrap, matplotlib, seaborn, pandas, and numpy. Features live weather data, team city comparison, temperature graphs, weather journal, mascot, and theme switcher.
 
-## Features ✨
-- 🔍 Weather data retrieval by city name
-- 🌡️ Current weather conditions (temperature, humidity, wind speed)
-- 📅 5-day weather forecast functionality
+## Setup Instructions
 
-## Installation 🛠️
-1. Clone the repository:
+1. Clone the repository.
+
+2. Install dependencies:
+
    ```bash
-   git clone https://github.com/yourusername/weatherdashboard_DunashaPayne.git
-   ```
-2. Navigate to the project directory:
-   ```bash
-   cd weatherdashboard_DunashaPayne
+   pip install -r requirements.txt
    ```
 
-## License 📜
-This project is licensed under the MIT License. See the LICENSE file for details.
+3. Set your OpenWeatherMap API key as an environment variable:
+
+   ```bash
+   $env:OPENWEATHER_API_KEY = "your_api_key_here"  # Windows PowerShell
+   ```
+
+4. Run the app:
+
+   ```bash
+   python main.py
+   ```
+
+## Features
+
+- Responsive GUI with modular navigation
+- Live weather data for any city
+- Team city comparison (team_data.csv)
+- Temperature graph visualization
+- Weather journal
+- Tomorrow's Guess feature
+- Mascot and theme switcher
+- Export data to CSV/JSON
+
+See `user_guide.md` for non-technical instructions.

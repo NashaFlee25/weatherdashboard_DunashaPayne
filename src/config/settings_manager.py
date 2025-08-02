@@ -1,24 +1,25 @@
-import json
 import os
+import json
 
 class SettingsManager:
+    """
+    Manages application settings, such as the last searched city.
+    """
+    SETTINGS_FILE = 'settings.json'
+
     def __init__(self):
-        self.settings_file = "settings.json"
+        self.settings = self._load_settings()
+
+    def _load_settings(self):
+        if os.path.exists(self.SETTINGS_FILE):
+            with open(self.SETTINGS_FILE, 'r') as f:
+                return json.load(f)
+        return {}
 
     def get_last_city(self):
-        try:
-            if os.path.exists(self.settings_file):
-                with open(self.settings_file, 'r') as f:
-                    settings = json.load(f)
-                    return settings.get('last_city', '')
-        except:
-            pass
-        return ''
+        return self.settings.get('last_city', '')
 
     def set_last_city(self, city):
-        try:
-            settings = {'last_city': city}
-            with open(self.settings_file, 'w') as f:
-                json.dump(settings, f)
-        except:
-            pass
+        self.settings['last_city'] = city
+        with open(self.SETTINGS_FILE, 'w') as f:
+            json.dump(self.settings, f)

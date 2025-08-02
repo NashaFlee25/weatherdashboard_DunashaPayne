@@ -1,44 +1,28 @@
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-
-# Virtual environments
+*.pyo
+*.pyd
+*.env
 .env
-.venv
-env/
 venv/
 ENV/
+*.sqlite3
+*.db
 
-# IDE
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# VS Code
 .vscode/
-.idea/
+
+# Data and logs
+*.csv
+*.json
+*.log
+journal.csv
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Project specific
-*.log
-.coverage
-.pytest_cache/
-
-# API keys and secrets
-config.ini
-secrets.json
-
-# Backup and duplicate files
-Backup/
-*_backup.py
-*_old.py
-*.bak
-*.tmp
-
-# Development artifacts - now in src structure
-src/data/weather_preferences.json
-src/data/theme_config.json
-src/data/team_weather.csv
-src/data/weather_dashboard.log
-
-# Remove old duplicate references - these are now organized in src/
