@@ -4,7 +4,7 @@ from tkinter import messagebox
 from src.services.weather_service import WeatherService
 from src.config.settings_manager import SettingsManager
 from features.tracker import save_weather_to_csv
-from gui_icons import GUIIcons
+from src.gui_icons import GUIIcons
 
 
 
@@ -66,8 +66,16 @@ class WeatherDashboard:
 
     def _update_display(self, weather_data):
         """Update the result label, weather icon, and save weather data to CSV."""
-        # Get icon for current weather
-        icon = GUIIcons.get_icon(weather_data.get('description', ''), weather_data.get('temperature'))
+        # Get icon for current weather with error handling
+        try:
+            if hasattr(GUIIcons, 'get_icon'):
+                icon = GUIIcons.get_icon(weather_data.get('description', ''), weather_data.get('temperature'))
+            else:
+                # Fallback if method doesn't exist
+                icon = "🌤️"  # Default weather icon
+        except Exception:
+            icon = "🌤️"  # Fallback icon on any error
+            
         self.icon_text.set(icon)
         self.result_text.set(
             f"Weather in {weather_data['city']}:\n"
