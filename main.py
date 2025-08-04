@@ -165,6 +165,9 @@ class WeatherDashboard:
         saved_theme = self.settings_manager.get_theme()
         self.current_theme = saved_theme if saved_theme in self.THEMES else "Light"
         
+        # Load available cities from CSV
+        self.available_cities = self.load_cities_from_csv()
+        
         # Setup GUI
         self.setup_gui()
         self.apply_theme(self.current_theme)
@@ -178,6 +181,44 @@ class WeatherDashboard:
         if self.current_city:
             self.city_entry.insert(0, self.current_city)
             self.get_weather()
+
+    def load_cities_from_csv(self):
+        """Load available cities from the team CSV file"""
+        try:
+            from pathlib import Path
+            import csv
+            csv_path = Path(__file__).parent / "data" / "team_weather_data.csv"
+            available_cities = set()
+            
+            with csv_path.open(newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    city = row.get("city", "").strip()
+                    # Only include cities that have temperature data
+                    if city and any(row.get(col, "").strip() for col in ["temperature", "temp_f"]):
+                        # Check if the temperature and humidity values are not empty or zero
+                        temp_str = ""
+                        hum_str = ""
+                        
+                        for temp_col in ["temperature", "temp", "temp_f"]:
+                            val = row.get(temp_col, "").strip()
+                            if val and val != "0" and val != "0.0":
+                                temp_str = val
+                                break
+                        
+                        for hum_col in ["humidity", "humidity_pct"]:
+                            val = row.get(hum_col, "").strip()
+                            if val and val != "0" and val != "0.0":
+                                hum_str = val
+                                break
+                        
+                        if temp_str and hum_str:
+                            available_cities.add(city)
+            
+            return sorted(list(available_cities))
+        except Exception as e:
+            print(f"Error loading cities from CSV: {e}")
+            return []
 
     def setup_gui(self):
         # Main frame
@@ -215,14 +256,29 @@ class WeatherDashboard:
                                          command=self.get_weather)
         self.get_weather_btn.grid(row=1, column=2)
         
-        # Compare City 2 input (new)
-        ttk.Label(input_frame, text="Compare City 2: 📍").grid(row=2, column=0, padx=(0, 10))
-        self.city_entry2 = ttk.Entry(input_frame, font=("Arial", 12))
-        self.city_entry2.grid(row=2, column=1, sticky=(tk.W, tk.E), padx=(0, 10))
+        # City comparison section
+        ttk.Label(input_frame, text="Compare Cities from CSV Data:", 
+                 font=("Arial", 11, "bold")).grid(row=2, column=0, columnspan=3, pady=(20, 5), sticky="w")
         
-        # Compare Cities button (new)
+        # Compare City 1 dropdown
+        ttk.Label(input_frame, text="City 1: 📍").grid(row=3, column=0, padx=(0, 10))
+        self.city1_var = tk.StringVar()
+        self.city1_dropdown = ttk.Combobox(input_frame, textvariable=self.city1_var,
+                                          values=self.available_cities,
+                                          state="readonly", font=("Arial", 12))
+        self.city1_dropdown.grid(row=3, column=1, sticky=(tk.W, tk.E), padx=(0, 10))
+        
+        # Compare City 2 dropdown
+        ttk.Label(input_frame, text="City 2: 📍").grid(row=4, column=0, padx=(0, 10))
+        self.city2_var = tk.StringVar()
+        self.city2_dropdown = ttk.Combobox(input_frame, textvariable=self.city2_var,
+                                          values=self.available_cities,
+                                          state="readonly", font=("Arial", 12))
+        self.city2_dropdown.grid(row=4, column=1, sticky=(tk.W, tk.E), padx=(0, 10))
+        
+        # Compare Cities button
         ttk.Button(input_frame, text="Compare Cities 🔍", 
-                  command=self.compare_cities).grid(row=3, column=0, columnspan=3, pady=10)
+                  command=self.compare_cities_from_dropdown).grid(row=5, column=0, columnspan=3, pady=10)
         
         # Greeting label (new)
         self.greeting_label = ttk.Label(main_frame, text="", font=("Arial", 14, "italic"))
@@ -477,13 +533,17 @@ class WeatherDashboard:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load statistics: {str(e)}")
 
-    def compare_cities(self):
-        """Compare two cities using CSV data"""
-        c1 = self.city_entry.get().strip()
-        c2 = self.city_entry2.get().strip()
+    def compare_cities_from_dropdown(self):
+        """Compare two cities selected from dropdown boxes"""
+        c1 = self.city1_var.get().strip()
+        c2 = self.city2_var.get().strip()
         
         if not c1 or not c2:
-            messagebox.showwarning("Warning", "Please enter both city names")
+            messagebox.showwarning("Warning", "Please select both cities from the dropdown lists")
+            return
+        
+        if c1 == c2:
+            messagebox.showwarning("Warning", "Please select two different cities to compare")
             return
         
         try:
@@ -495,21 +555,151 @@ class WeatherDashboard:
             city2_data = data.get(c2, {})
             
             if not city1_data and not city2_data:
-                msg = f"No weather data found for either {c1} or {c2} in the CSV records."
+                msg = f"No weather data found for either '{c1}' or '{c2}' in team weather records."
             elif not city1_data:
-                msg = f"No weather data found for {c1} in the CSV records.\n{c2} → {city2_data['temperature']:.1f}°C, {city2_data['description']}"
+                msg = f"No weather data found for '{c1}'.\n\n{c2}:\n  🌡️ Temperature: {city2_data['temperature']:.1f}°C\n  🌦️ Condition: {city2_data['weather_description']}\n  💧 Humidity: {city2_data['humidity']}%\n  📅 Updated: {city2_data['timestamp'].strftime('%Y-%m-%d %H:%M')}"
             elif not city2_data:
-                msg = f"No weather data found for {c2} in the CSV records.\n{c1} → {city1_data['temperature']:.1f}°C, {city1_data['description']}"
+                msg = f"No weather data found for '{c2}'.\n\n{c1}:\n  🌡️ Temperature: {city1_data['temperature']:.1f}°C\n  🌦️ Condition: {city1_data['weather_description']}\n  💧 Humidity: {city1_data['humidity']}%\n  📅 Updated: {city1_data['timestamp'].strftime('%Y-%m-%d %H:%M')}"
             else:
-                msg = (
-                    f"{c1} → {city1_data['temperature']:.1f}°C, {city1_data['description']}\n"
-                    f"{c2} → {city2_data['temperature']:.1f}°C, {city2_data['description']}"
-                )
+                # Both cities found - show detailed comparison window
+                self.show_detailed_comparison(c1, city1_data, c2, city2_data)
+                return
             
             messagebox.showinfo("City Comparison", msg)
             
+        except FileNotFoundError:
+            messagebox.showerror("Error", "Team weather data file not found.\nPlease ensure 'team_weather_data.csv' exists in the 'data' folder.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to compare cities: {str(e)}")
+
+    def compare_cities(self):
+        """Compare two cities using manual city entry (legacy method)"""
+        c1 = self.city_entry.get().strip()
+        c2 = self.city_entry2.get().strip() if hasattr(self, 'city_entry2') else ""
+        
+        if not c1 or not c2:
+            messagebox.showwarning("Warning", "Please enter both city names")
+            return
+        
+        # Use the same logic as compare_cities_from_dropdown
+        try:
+            from features.comparison import compare_cities as comp
+            data = comp(c1, c2)
+            
+            city1_data = data.get(c1, {})
+            city2_data = data.get(c2, {})
+            
+            if not city1_data and not city2_data:
+                try:
+                    from pathlib import Path
+                    import csv
+                    csv_path = Path(__file__).parent / "data" / "team_weather_data.csv"
+                    available_cities = set()
+                    with csv_path.open(newline="", encoding="utf-8") as f:
+                        reader = csv.DictReader(f)
+                        for row in reader:
+                            city = row.get("city", "").strip()
+                            if city and any(row.get(col, "").strip() for col in ["temperature", "temp_f"]):
+                                available_cities.add(city)
+                    
+                    cities_list = sorted(list(available_cities))
+                    if cities_list:
+                        cities_text = ", ".join(cities_list[:15])
+                        if len(cities_list) > 15:
+                            cities_text += f" (and {len(cities_list) - 15} more)"
+                        
+                        msg = f"No weather data found for '{c1}' or '{c2}'.\n\nTry these available cities:\n{cities_text}"
+                    else:
+                        msg = f"No weather data found for '{c1}' or '{c2}', and no valid cities found in the CSV."
+                except Exception as e:
+                    msg = f"No weather data found for '{c1}' or '{c2}'. Error reading available cities: {str(e)}"
+                    
+            elif not city1_data:
+                msg = f"No weather data found for '{c1}'.\n\n{c2}:\n  🌡️ Temperature: {city2_data['temperature']:.1f}°C\n  🌦️ Condition: {city2_data['weather_description']}\n  💧 Humidity: {city2_data['humidity']}%\n  📅 Updated: {city2_data['timestamp'].strftime('%Y-%m-%d %H:%M')}"
+            elif not city2_data:
+                msg = f"No weather data found for '{c2}'.\n\n{c1}:\n  🌡️ Temperature: {city1_data['temperature']:.1f}°C\n  🌦️ Condition: {city1_data['weather_description']}\n  💧 Humidity: {city1_data['humidity']}%\n  📅 Updated: {city1_data['timestamp'].strftime('%Y-%m-%d %H:%M')}"
+            else:
+                self.show_detailed_comparison(c1, city1_data, c2, city2_data)
+                return
+            
+            messagebox.showinfo("City Comparison", msg)
+            
+        except FileNotFoundError:
+            messagebox.showerror("Error", "Team weather data file not found.\nPlease ensure 'team_weather_data.csv' exists in the 'data' folder.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to compare cities: {str(e)}")
+
+    def show_detailed_comparison(self, city1, data1, city2, data2):
+        """Show detailed comparison in a new window"""
+        comp_window = tk.Toplevel(self.root)
+        comp_window.title("City Comparison 🔍")
+        comp_window.geometry("600x400")
+        
+        main_frame = ttk.Frame(comp_window, padding="20")
+        main_frame.pack(fill="both", expand=True)
+        
+        # Title
+        title_label = ttk.Label(main_frame, text=f"Comparing {city1} vs {city2}", 
+                               font=("Arial", 16, "bold"))
+        title_label.pack(pady=(0, 20))
+        
+        # Comparison frame
+        comp_frame = ttk.Frame(main_frame)
+        comp_frame.pack(fill="both", expand=True)
+        
+        # City 1 frame
+        city1_frame = ttk.LabelFrame(comp_frame, text=f"{city1}", padding="15")
+        city1_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        
+        ttk.Label(city1_frame, text=f"🌡️ Temperature: {data1['temperature']:.1f}°C", 
+                 font=("Arial", 12)).pack(anchor="w", pady=2)
+        ttk.Label(city1_frame, text=f"🌦️ Condition: {data1['weather_description']}", 
+                 font=("Arial", 12)).pack(anchor="w", pady=2)
+        ttk.Label(city1_frame, text=f"💧 Humidity: {data1['humidity']}%", 
+                 font=("Arial", 12)).pack(anchor="w", pady=2)
+        ttk.Label(city1_frame, text=f"🔽 Pressure: {data1['pressure']} hPa", 
+                 font=("Arial", 12)).pack(anchor="w", pady=2)
+        ttk.Label(city1_frame, text=f"📅 Last Updated: {data1['timestamp'].strftime('%Y-%m-%d %H:%M')}", 
+                 font=("Arial", 10)).pack(anchor="w", pady=2)
+        
+        # City 2 frame
+        city2_frame = ttk.LabelFrame(comp_frame, text=f"{city2}", padding="15")
+        city2_frame.pack(side="right", fill="both", expand=True, padx=(10, 0))
+        
+        ttk.Label(city2_frame, text=f"🌡️ Temperature: {data2['temperature']:.1f}°C", 
+                 font=("Arial", 12)).pack(anchor="w", pady=2)
+        ttk.Label(city2_frame, text=f"🌦️ Condition: {data2['weather_description']}", 
+                 font=("Arial", 12)).pack(anchor="w", pady=2)
+        ttk.Label(city2_frame, text=f"💧 Humidity: {data2['humidity']}%", 
+                 font=("Arial", 12)).pack(anchor="w", pady=2)
+        ttk.Label(city2_frame, text=f"🔽 Pressure: {data2['pressure']} hPa", 
+                 font=("Arial", 12)).pack(anchor="w", pady=2)
+        ttk.Label(city2_frame, text=f"📅 Last Updated: {data2['timestamp'].strftime('%Y-%m-%d %H:%M')}", 
+                 font=("Arial", 10)).pack(anchor="w", pady=2)
+        
+        # Comparison summary
+        summary_frame = ttk.LabelFrame(main_frame, text="Comparison Summary", padding="15")
+        summary_frame.pack(fill="x", pady=(20, 0))
+        
+        temp_diff = data1['temperature'] - data2['temperature']
+        if temp_diff > 0:
+            temp_summary = f"{city1} is {temp_diff:.1f}°C warmer than {city2}"
+        elif temp_diff < 0:
+            temp_summary = f"{city2} is {abs(temp_diff):.1f}°C warmer than {city1}"
+        else:
+            temp_summary = f"Both cities have the same temperature"
+        
+        ttk.Label(summary_frame, text=temp_summary, font=("Arial", 11)).pack(anchor="w")
+        
+        humid_diff = data1['humidity'] - data2['humidity']
+        if humid_diff > 0:
+            humid_summary = f"{city1} is {humid_diff}% more humid than {city2}"
+        elif humid_diff < 0:
+            humid_summary = f"{city2} is {abs(humid_diff)}% more humid than {city1}"
+        else:
+            humid_summary = f"Both cities have the same humidity"
+        
+        ttk.Label(summary_frame, text=humid_summary, font=("Arial", 11)).pack(anchor="w")
 
 
 def main():
