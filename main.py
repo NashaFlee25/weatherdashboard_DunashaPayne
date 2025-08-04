@@ -123,6 +123,14 @@ class SettingsManager:
 
 
 class WeatherDashboard:
+    # Add themes as class attribute
+    THEMES = {
+        "Light":   {"bg": "SystemButtonFace", "fg": "black"},
+        "Dark":    {"bg": "#2b2b2b",         "fg": "white"},
+        "Blue":    {"bg": "#ADD8E6",         "fg": "navy"},
+        "Green":   {"bg": "#D0F0C0",         "fg": "darkgreen"},
+    }
+    
     def __init__(self, root):
         self.root = root
         self.root.title("Weather Dashboard")
@@ -135,12 +143,13 @@ class WeatherDashboard:
         # Load saved city
         self.current_city = self.settings_manager.get_last_city()
         
-        # Initialize theme
-        self.current_theme = self.settings_manager.get_theme()
+        # Initialize theme - use saved theme or default to Light
+        saved_theme = self.settings_manager.get_theme()
+        self.current_theme = saved_theme if saved_theme in self.THEMES else "Light"
         
         # Setup GUI
         self.setup_gui()
-        self.apply_theme()
+        self.apply_theme(self.current_theme)
         
         # Load weather for saved city if exists
         if self.current_city:
@@ -217,37 +226,74 @@ class WeatherDashboard:
                                    command=self.display_stats)
         self.stats_btn.grid(row=0, column=1, padx=(0, 10))
         
-        self.theme_btn = ttk.Button(button_frame, text="Toggle Theme", 
-                                   command=self.toggle_theme)
-        self.theme_btn.grid(row=0, column=2)
+        # Theme dropdown
+        ttk.Label(button_frame, text="Theme:").grid(row=0, column=2, padx=(10, 5))
+        self.theme_var = tk.StringVar(value=self.current_theme)
+        self.theme_dropdown = ttk.Combobox(button_frame, textvariable=self.theme_var,
+                                          values=list(self.THEMES.keys()),
+                                          state="readonly", width=10)
+        self.theme_dropdown.grid(row=0, column=3, padx=(0, 10))
+        self.theme_dropdown.bind('<<ComboboxSelected>>', self.on_theme_change)
 
-    def apply_theme(self):
-        """Apply the current theme to the application"""
+    def apply_theme(self, selected_theme=None):
+        """Apply the chosen theme colors to the window and all widgets."""
+        if selected_theme is None:
+            selected_theme = self.current_theme
+            
+        if selected_theme not in self.THEMES:
+            selected_theme = "Light"
+            
+        style_config = self.THEMES[selected_theme]
+        bg, fg = style_config["bg"], style_config["fg"]
+        
+        # Configure ttk Style
         style = ttk.Style()
         
-        if self.current_theme == "dark":
-            # Dark theme
-            self.root.configure(bg="#2b2b2b")
+        if selected_theme == "Dark":
             style.theme_use("clam")
-            style.configure(".", background="#2b2b2b", foreground="white")
-            style.configure("TLabel", background="#2b2b2b", foreground="white")
-            style.configure("TFrame", background="#2b2b2b")
-            style.configure("TLabelFrame", background="#2b2b2b", foreground="white")
-            style.configure("TButton", background="#404040", foreground="white")
+            style.configure(".", background=bg, foreground=fg)
+            style.configure("TLabel", background=bg, foreground=fg)
+            style.configure("TFrame", background=bg)
+            style.configure("TLabelFrame", background=bg, foreground=fg)
+            style.configure("TButton", background="#404040", foreground=fg)
+            style.configure("TCombobox", 
+                          foreground=fg,
+                          fieldbackground="#404040",
+                          background="#404040")
             style.configure("TEntry", 
-                          foreground="white",
+                          foreground=fg,
                           fieldbackground="#404040",
                           background="#404040")
         else:
-            # Light theme (default)
-            self.root.configure(bg="SystemButtonFace")
+            # For Light, Blue, and Green themes
             style.theme_use("default")
+            if selected_theme != "Light":
+                style.configure(".", background=bg, foreground=fg)
+                style.configure("TLabel", background=bg, foreground=fg)
+                style.configure("TFrame", background=bg)
+                style.configure("TLabelFrame", background=bg, foreground=fg)
+                style.configure("TButton", background=bg, foreground=fg)
+                style.configure("TCombobox", background=bg, foreground=fg)
+                style.configure("TEntry", background=bg, foreground=fg)
+        
+        # Configure root window
+        self.root.configure(bg=bg)
+        self.current_theme = selected_theme
+
+    def on_theme_change(self, event=None):
+        """Handle theme change from dropdown"""
+        selected_theme = self.theme_var.get()
+        self.apply_theme(selected_theme)
+        self.settings_manager.save_theme(selected_theme)
 
     def toggle_theme(self):
-        """Toggle between light and dark themes"""
-        self.current_theme = "light" if self.current_theme == "dark" else "dark"
-        self.settings_manager.save_theme(self.current_theme)
-        self.apply_theme()
+        """Toggle between themes (kept for backward compatibility)"""
+        current_index = list(self.THEMES.keys()).index(self.current_theme)
+        next_index = (current_index + 1) % len(self.THEMES)
+        next_theme = list(self.THEMES.keys())[next_index]
+        self.theme_var.set(next_theme)
+        self.apply_theme(next_theme)
+        self.settings_manager.save_theme(next_theme)
 
     def get_weather(self):
         city = self.city_entry.get().strip()
