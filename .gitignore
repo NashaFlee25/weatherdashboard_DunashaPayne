@@ -3,26 +3,65 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
-*.env
-.env
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
 venv/
 ENV/
+env/
+.venv/
+
+# Environment variables
+*.env
+.env
+.env.local
+.env.production
+
+# Data files
+*.csv
+*.json
+*.log
 *.sqlite3
 *.db
+journal.csv
+weather_data.csv
+settings.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
 
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb
 
-# VS Code
-.vscode/
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Data and logs
-*.csv
-*.json
-*.log
-journal.csv
-
-# OS
-.DS_Store
-Thumbs.db
+# Documentation
+docs/_build/
