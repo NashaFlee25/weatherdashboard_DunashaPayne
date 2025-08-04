@@ -76,34 +76,44 @@ def calculate_stats_from_csv(filename="weather_history.csv"):
     return stats
 
 
+def get_personalized_greeting(name):
+    """
+    Generate a personalized greeting with time-of-day emoji.
+    
+    Args:
+        name: User's name
+        
+    Returns:
+        String with personalized greeting and appropriate emoji
+    """
+    current_hour = datetime.now().hour
+    
+    if 5 <= current_hour < 12:
+        return f"Good morning, {name}! 🌅"
+    elif 12 <= current_hour < 18:
+        return f"Good afternoon, {name}! ☀️"
+    else:
+        return f"Good evening, {name}! 🌙"
+
+
 def get_weather_phrase(temperature, description):
-    """Generate a descriptive phrase based on weather conditions"""
-    description = description.lower()
+    """
+    Generate a weather phrase with emoji based on temperature and description.
     
-    # Temperature-based phrases
-    if temperature < 0:
-        temp_phrase = "Bundle up, it's freezing!"
-    elif temperature < 10:
-        temp_phrase = "It's quite cold out there."
-    elif temperature < 20:
-        temp_phrase = "Perfect weather for a light jacket."
-    elif temperature < 30:
-        temp_phrase = "Great weather to be outside!"
+    Args:
+        temperature: Temperature in Celsius
+        description: Weather description from API
+        
+    Returns:
+        String with emoji and descriptive phrase
+    """
+    description_lower = description.lower()
+    
+    if "rain" in description_lower or "drizzle" in description_lower or "shower" in description_lower:
+        return "🌧️ Don't forget your umbrella!"
+    elif "clear" in description_lower or "sun" in description_lower:
+        return "☀️ Perfect sunshine day!"
+    elif "cloud" in description_lower or "overcast" in description_lower:
+        return "☁️ Cozy clouds above!"
     else:
-        temp_phrase = "It's getting quite hot!"
-    
-    # Weather condition phrases
-    if "rain" in description:
-        condition_phrase = "Don't forget your umbrella!"
-    elif "snow" in description:
-        condition_phrase = "Winter wonderland awaits!"
-    elif "clear" in description or "sun" in description:
-        condition_phrase = "Perfect day for outdoor activities!"
-    elif "cloud" in description:
-        condition_phrase = "Cloudy but pleasant."
-    elif "storm" in description or "thunder" in description:
-        condition_phrase = "Stay safe indoors!"
-    else:
-        condition_phrase = "Check the sky before heading out."
-    
-    return f"{temp_phrase} {condition_phrase}"
+        return "🌈 Enjoy your day!"
