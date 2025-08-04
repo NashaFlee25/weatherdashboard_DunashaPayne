@@ -1,21 +1,8 @@
-# Weather Dashboard - Essential TKinter GUI Dependencies
-# ======================================================
-
-# Weather API Integration
-requests>=2.31.0
-
-# Environment Variables for API Keys
-python-dotenv>=1.0.0
-
-# Data Validation for Weather Models
-pydantic>=2.0.0
-
-# Optional: Enhanced logging for debugging
-loguru>=0.7.0
-
-# Database support
-# sqlite3 is built-in with Python
-sqlalchemy>=2.0.0  # ORM for database operations
-
-# Note: TKinter is included with Python by default
-# All capstone features work with these minimal dependencies
+customtkinter
+Pillow
+ttkbootstrap
+matplotlib
+seaborn
+pandas
+numpy
+requests

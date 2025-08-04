@@ -1,8 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from .weather_api import WeatherAPI
-from .user_settings import UserSettings, WeatherHistory
-from .utils import format_timestamp
+from src.weather_api import WeatherAPI
+from src.user_settings import UserSettings, WeatherHistory
+from src.utils import format_timestamp
 
 class WeatherDashboard:
     def __init__(self, root):

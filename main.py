@@ -1,156 +1,394 @@
-import requests  # type: ignore
-from dotenv import load_dotenv  # type: ignore
-import os
+"""
+Weather Dashboard Application
+
+A modern, user-friendly weather dashboard that provides current weather information,
+historical data tracking, and weather statistics with a clean GUI interface.
+
+Requirements:
+- Install requests: pip install requests
+- Install python-dotenv: pip install python-dotenv
+"""
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
+import sys
+import os
 import json
-from typing import Optional, Dict, Any
-import csv
-from datetime import datetime
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
-class WeatherAPI:
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.base_url = "http://api.openweathermap.org/data/2.5/weather"
+# Check if requests is installed before proceeding
+try:
+    import requests
+except ImportError:
+    print("Error: 'requests' library is not installed.")
+    print("Please install it using: pip install requests")
+    sys.exit(1)
 
-    def fetch_weather(self, city_name: str) -> Optional[Dict[str, Any]]:
-        params = {
-            "q": city_name,
-            "appid": self.api_key,
-            "units": "metric"
-        }
+# Add the project root directory to Python path
+project_root = os.path.dirname(os.path.abspath(__file__))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+from features.tracker import (
+    save_weather_to_csv,
+    read_last_n_entries,
+    calculate_stats_from_csv,
+    get_weather_phrase
+)
+
+
+class WeatherService:
+    def __init__(self):
+        # Get API key from environment variable loaded from .env file
+        self.api_key = os.getenv("API_KEY")
+        if not self.api_key:
+            raise ValueError("API_KEY not found in environment variables. Please check your .env file.")
+    
+    def get_weather(self, city: str) -> dict:
+        """
+        Get weather data for a given city from OpenWeatherMap API.
+        
+        Args:
+            city: Name of the city to get weather for
+            
+        Returns:
+            Dictionary containing weather data
+            
+        Raises:
+            Exception: If API call fails or data parsing fails
+        """
         try:
-            response = requests.get(self.base_url, params=params)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.HTTPError as http_err:
-            if response.status_code == 401:
-                print("Error: Invalid API key. Please check your API key in the .env file.")
-            elif response.status_code == 404:
-                messagebox.showerror("Error", f"City '{city_name}' not found. Please check the spelling and try again.")
+            url = "https://api.openweathermap.org/data/2.5/weather"
+            params = {"q": city, "appid": self.api_key, "units": "metric"}
+            
+            resp = requests.get(url, params=params, timeout=5)
+            resp.raise_for_status()
+            data = resp.json()
+            
+            # Parse the response data
+            weather_data = {
+                "city": data["name"],
+                "country": data["sys"]["country"],
+                "temperature": data["main"]["temp"],
+                "feels_like": data["main"]["feels_like"],
+                "humidity": data["main"]["humidity"],
+                "pressure": data["main"]["pressure"],
+                "wind_speed": data["wind"]["speed"],
+                "description": data["weather"][0]["description"]
+            }
+            
+            return weather_data
+            
+        except requests.exceptions.HTTPError as e:
+            if resp.status_code == 404:
+                raise Exception(f"City '{city}' not found")
+            elif resp.status_code == 401:
+                raise Exception("Invalid API key")
             else:
-                print(f"HTTP error occurred: {http_err}")
-        except requests.exceptions.RequestException as req_err:
-            print(f"Request error occurred: {req_err}")
-        return None
+                raise Exception(f"HTTP error: {e}")
+        except requests.exceptions.RequestException as e:
+            raise Exception(f"Network error: {e}")
+        except KeyError as e:
+            raise Exception(f"Unexpected API response format: missing {e}")
+        except Exception as e:
+            raise Exception(f"Failed to get weather data: {e}")
 
-class UserSettings:
-    def __init__(self, filename: str = "user_settings.json"):
-        self.filename = filename
 
-    def save(self, settings: Dict[str, Any]) -> None:
-        try:
-            with open(self.filename, "w") as file:
-                json.dump(settings, file, indent=4)
-            print(f"Settings saved to {self.filename}")
-        except IOError as e:
-            print(f"Error saving settings: {e}")
+class SettingsManager:
+    def __init__(self):
+        self._config_path = os.path.join(os.path.dirname(__file__), "settings.json")
+        if os.path.exists(self._config_path):
+            with open(self._config_path) as f:
+                self._config = json.load(f)
+        else:
+            self._config = {}
+    
+    def get_last_city(self) -> str:
+        return self._config.get("last_city", "")
+    
+    def save_last_city(self, city: str) -> None:
+        self._config["last_city"] = city
+        with open(self._config_path, "w") as f:
+            json.dump(self._config, f, indent=2)
+    
+    def get_theme(self) -> str:
+        return self._config.get("theme", "light")
+    
+    def save_theme(self, theme: str) -> None:
+        self._config["theme"] = theme
+        with open(self._config_path, "w") as f:
+            json.dump(self._config, f, indent=2)
 
-    def load(self) -> Optional[Dict[str, Any]]:
-        try:
-            if os.path.exists(self.filename):
-                with open(self.filename, "r") as file:
-                    return json.load(file)
-        except IOError as e:
-            print(f"Error loading settings: {e}")
-        return None
 
 class WeatherDashboard:
-    def __init__(self):
-        self.api_key = os.getenv("OPENWEATHER_API_KEY")
-        if not self.api_key:
-            raise ValueError("API key not found. Please set it in the .env file.")
-        self.weather_api = WeatherAPI(self.api_key)
-        self.user_settings = UserSettings()
-        self.root = tk.Tk()
-        self.result_text = tk.StringVar()
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Weather Dashboard")
+        self.root.geometry("800x600")
+        
+        # Initialize services
+        self.weather_service = WeatherService()
+        self.settings_manager = SettingsManager()
+        
+        # Load saved city
+        self.current_city = self.settings_manager.get_last_city()
+        
+        # Initialize theme
+        self.current_theme = self.settings_manager.get_theme()
+        
+        # Setup GUI
+        self.setup_gui()
+        self.apply_theme()
+        
+        # Load weather for saved city if exists
+        if self.current_city:
+            self.city_entry.insert(0, self.current_city)
+            self.get_weather()
 
-    def log_weather_data(self, city_name: str, weather_data: Dict[str, Any]) -> None:
-        log_file = "weather_log.csv"
-        file_exists = os.path.exists(log_file)
+    def setup_gui(self):
+        # Main frame
+        main_frame = ttk.Frame(self.root, padding="20")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        # Configure grid weights
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=1)
+        
+        # Title
+        title_label = ttk.Label(main_frame, text="Weather Dashboard", 
+                               font=("Arial", 24, "bold"))
+        title_label.grid(row=0, column=0, columnspan=3, pady=(0, 20))
+        
+        # City input frame
+        input_frame = ttk.Frame(main_frame)
+        input_frame.grid(row=1, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 20))
+        input_frame.columnconfigure(1, weight=1)
+        
+        ttk.Label(input_frame, text="City:").grid(row=0, column=0, padx=(0, 10))
+        self.city_entry = ttk.Entry(input_frame, font=("Arial", 12))
+        self.city_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 10))
+        self.city_entry.bind('<Return>', lambda e: self.get_weather())
+        
+        self.get_weather_btn = ttk.Button(input_frame, text="Get Weather", 
+                                         command=self.get_weather)
+        self.get_weather_btn.grid(row=0, column=2)
+        
+        # Weather display frame
+        self.weather_frame = ttk.LabelFrame(main_frame, text="Current Weather", padding="15")
+        self.weather_frame.grid(row=2, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), 
+                               pady=(0, 20))
+        self.weather_frame.columnconfigure(0, weight=1)
+        
+        # Weather info labels
+        self.city_label = ttk.Label(self.weather_frame, text="", font=("Arial", 16, "bold"))
+        self.city_label.grid(row=0, column=0, pady=(0, 10))
+        
+        self.temp_label = ttk.Label(self.weather_frame, text="", font=("Arial", 14))
+        self.temp_label.grid(row=1, column=0, pady=(0, 5))
+        
+        self.desc_label = ttk.Label(self.weather_frame, text="", font=("Arial", 12))
+        self.desc_label.grid(row=2, column=0, pady=(0, 5))
+        
+        self.feels_like_label = ttk.Label(self.weather_frame, text="", font=("Arial", 10))
+        self.feels_like_label.grid(row=3, column=0, pady=(0, 5))
+        
+        self.humidity_label = ttk.Label(self.weather_frame, text="", font=("Arial", 10))
+        self.humidity_label.grid(row=4, column=0, pady=(0, 5))
+        
+        self.pressure_label = ttk.Label(self.weather_frame, text="", font=("Arial", 10))
+        self.pressure_label.grid(row=5, column=0, pady=(0, 10))
+        
+        # Weather phrase
+        self.phrase_label = ttk.Label(self.weather_frame, text="", font=("Arial", 11, "italic"))
+        self.phrase_label.grid(row=6, column=0, pady=(0, 5))
+        
+        # Button frame
+        button_frame = ttk.Frame(main_frame)
+        button_frame.grid(row=3, column=0, columnspan=3, pady=(0, 20))
+        
+        self.history_btn = ttk.Button(button_frame, text="View History", 
+                                     command=self.show_history)
+        self.history_btn.grid(row=0, column=0, padx=(0, 10))
+        
+        self.stats_btn = ttk.Button(button_frame, text="Weather Stats", 
+                                   command=self.display_stats)
+        self.stats_btn.grid(row=0, column=1, padx=(0, 10))
+        
+        self.theme_btn = ttk.Button(button_frame, text="Toggle Theme", 
+                                   command=self.toggle_theme)
+        self.theme_btn.grid(row=0, column=2)
+
+    def apply_theme(self):
+        """Apply the current theme to the application"""
+        style = ttk.Style()
+        
+        if self.current_theme == "dark":
+            # Dark theme
+            self.root.configure(bg="#2b2b2b")
+            style.theme_use("clam")
+            style.configure(".", background="#2b2b2b", foreground="white")
+            style.configure("TLabel", background="#2b2b2b", foreground="white")
+            style.configure("TFrame", background="#2b2b2b")
+            style.configure("TLabelFrame", background="#2b2b2b", foreground="white")
+            style.configure("TButton", background="#404040", foreground="white")
+            style.configure("TEntry", 
+                          foreground="white",
+                          fieldbackground="#404040",
+                          background="#404040")
+        else:
+            # Light theme (default)
+            self.root.configure(bg="SystemButtonFace")
+            style.theme_use("default")
+
+    def toggle_theme(self):
+        """Toggle between light and dark themes"""
+        self.current_theme = "light" if self.current_theme == "dark" else "dark"
+        self.settings_manager.save_theme(self.current_theme)
+        self.apply_theme()
+
+    def get_weather(self):
+        city = self.city_entry.get().strip()
+        if not city:
+            messagebox.showwarning("Warning", "Please enter a city name")
+            return
         
         try:
-            with open(log_file, 'a', newline='') as f:
-                writer = csv.writer(f)
-                if not file_exists:
-                    writer.writerow(['Date', 'City', 'Temperature', 'Description'])
-                
-                current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                writer.writerow([
-                    current_date,
-                    city_name,
-                    weather_data['main']['temp'],
-                    weather_data['weather'][0]['description']
-                ])
-        except IOError as e:
-            print(f"Error writing to log file: {e}")
+            weather_data = self.weather_service.get_weather(city)
+            if weather_data:
+                self.display_weather(weather_data)
+                # Save to CSV
+                save_weather_to_csv(weather_data)
+                # Save city to settings
+                self.settings_manager.save_last_city(city)
+                self.current_city = city
+            else:
+                messagebox.showerror("Error", f"Weather data not found for {city}")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to get weather data: {str(e)}")
 
-    def display_weather(self) -> None:
-        city_name = self.city_entry.get().strip()
-        if not city_name:
-            messagebox.showerror("Error", "Please enter a city name.")
-            return
+    def display_weather(self, weather_data):
+        """Display weather data in the GUI"""
+        self.city_label.config(text=f"{weather_data['city']}, {weather_data['country']}")
+        self.temp_label.config(text=f"Temperature: {weather_data['temperature']:.1f}°C")
+        self.desc_label.config(text=f"Condition: {weather_data['description'].title()}")
+        self.feels_like_label.config(text=f"Feels like: {weather_data['feels_like']:.1f}°C")
+        self.humidity_label.config(text=f"Humidity: {weather_data['humidity']}%")
+        self.pressure_label.config(text=f"Pressure: {weather_data['pressure']} hPa")
+        
+        # Display weather phrase
+        phrase = get_weather_phrase(weather_data['temperature'], weather_data['description'])
+        self.phrase_label.config(text=phrase)
 
-        weather_data = self.weather_api.fetch_weather(city_name)
-        if not weather_data:
-            messagebox.showerror("Error", "City not found. Please try again.")
-            return
-
-        self.user_settings.save({"last_searched_city": city_name})
-        self.log_weather_data(city_name, weather_data)
-        self.result_text.set(self.format_weather_data(city_name, weather_data))
-
-    def format_weather_data(self, city_name: str, weather_data: Dict[str, Any]) -> str:
+    def show_history(self):
+        """Show weather history in a new window"""
         try:
-            return (
-                f"Weather in {city_name}: {weather_data['weather'][0]['description'].capitalize()}\n"
-                f"Temperature: {weather_data['main']['temp']}°C\n"
-                f"Humidity: {weather_data['main']['humidity']}%\n"
-                f"Wind Speed: {weather_data['wind']['speed']} m/s\n"
-                f"Visibility: {weather_data['visibility'] / 1000} km\n"
-                f"Cloudiness: {weather_data['clouds']['all']}%\n"
-                f"Sunrise: {self.format_unix_timestamp(weather_data['sys']['sunrise'])}\n"
-                f"Sunset: {self.format_unix_timestamp(weather_data['sys']['sunset'])}\n"
-                f"Fog: {weather_data.get('fog', 'No fog data available')}\n"
-                f"Rain: {weather_data.get('rain', 'No rain data available')}"
-            )
-        # Handle missing keys gracefully
-        except KeyError as e:
-            print(f"Error formatting weather data: Missing key {e}")
-            return "Error formatting weather data."
+            history_data = read_last_n_entries(10)  # Get last 10 entries
+            if not history_data:
+                messagebox.showinfo("History", "No weather history available")
+                return
+            
+            # Create history window
+            history_window = tk.Toplevel(self.root)
+            history_window.title("Weather History")
+            history_window.geometry("900x500")
+            
+            # Create treeview for history
+            columns = ("Timestamp", "City", "Temperature", "Description", "Humidity", "Pressure")
+            tree = ttk.Treeview(history_window, columns=columns, show="headings", height=15)
+            
+            # Configure columns
+            for col in columns:
+                tree.heading(col, text=col)
+                tree.column(col, width=140, anchor="center")
+            
+            # Add scrollbar
+            scrollbar = ttk.Scrollbar(history_window, orient="vertical", command=tree.yview)
+            tree.configure(yscrollcommand=scrollbar.set)
+            
+            # Pack widgets
+            tree.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=10)
+            scrollbar.pack(side="right", fill="y", pady=10, padx=(0, 10))
+            
+            # Insert data
+            for entry in history_data:
+                tree.insert("", "end", values=(
+                    entry['timestamp'],
+                    f"{entry['city']}, {entry['country']}",
+                    f"{float(entry['temperature']):.1f}°C",
+                    entry['description'].title(),
+                    f"{int(entry['humidity'])}%",
+                    f"{int(entry['pressure'])} hPa"
+                ))
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load history: {str(e)}")
 
-    @staticmethod
-    def format_unix_timestamp(timestamp: int) -> str:
-        from datetime import datetime
-        return datetime.utcfromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M:%S')
+    def display_stats(self):
+        """Display weather statistics in a new window"""
+        try:
+            stats = calculate_stats_from_csv()
+            if not stats:
+                messagebox.showinfo("Statistics", "No weather data available for statistics")
+                return
+            
+            # Create stats window
+            stats_window = tk.Toplevel(self.root)
+            stats_window.title("Weather Statistics")
+            stats_window.geometry("500x400")
+            
+            # Main frame
+            main_frame = ttk.Frame(stats_window, padding="20")
+            main_frame.pack(fill="both", expand=True)
+            
+            # Title
+            title_label = ttk.Label(main_frame, text="Weather Statistics", 
+                                   font=("Arial", 16, "bold"))
+            title_label.pack(pady=(0, 20))
+            
+            # Stats frame
+            stats_frame = ttk.LabelFrame(main_frame, text="Temperature Statistics", padding="15")
+            stats_frame.pack(fill="x", pady=(0, 10))
+            
+            ttk.Label(stats_frame, text=f"Average Temperature: {stats['avg_temp']:.1f}°C", 
+                     font=("Arial", 12)).pack(anchor="w", pady=2)
+            ttk.Label(stats_frame, text=f"Highest Temperature: {stats['max_temp']:.1f}°C", 
+                     font=("Arial", 12)).pack(anchor="w", pady=2)
+            ttk.Label(stats_frame, text=f"Lowest Temperature: {stats['min_temp']:.1f}°C", 
+                     font=("Arial", 12)).pack(anchor="w", pady=2)
+            
+            # Cities frame
+            cities_frame = ttk.LabelFrame(main_frame, text="Most Searched Cities", padding="15")
+            cities_frame.pack(fill="x", pady=(0, 10))
+            
+            for i, (city, count) in enumerate(stats['top_cities'][:5], 1):
+                ttk.Label(cities_frame, text=f"{i}. {city}: {count} searches", 
+                         font=("Arial", 11)).pack(anchor="w", pady=1)
+            
+            # General stats frame
+            general_frame = ttk.LabelFrame(main_frame, text="General Statistics", padding="15")
+            general_frame.pack(fill="x")
+            
+            ttk.Label(general_frame, text=f"Total Searches: {stats['total_searches']}", 
+                     font=("Arial", 12)).pack(anchor="w", pady=2)
+            ttk.Label(general_frame, text=f"Average Humidity: {stats['avg_humidity']:.1f}%", 
+                     font=("Arial", 12)).pack(anchor="w", pady=2)
+            ttk.Label(general_frame, text=f"Average Pressure: {stats['avg_pressure']:.1f} hPa", 
+                     font=("Arial", 12)).pack(anchor="w", pady=2)
+                     
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load statistics: {str(e)}")
 
-    def run(self) -> None:
-        self.root.title("Weather Dashboard")
-        self.root.geometry("500x300")
 
-        tk.Label(self.root, text="Enter City Name:").grid(row=0, column=0, padx=10, pady=10)
-        self.city_entry = tk.Entry(self.root, width=30)
-        self.city_entry.grid(row=0, column=1, padx=10, pady=10)
+def main():
+    # Create and run the application
+    root = tk.Tk()
+    app = WeatherDashboard(root)
+    root.mainloop()
 
-        tk.Button(self.root, text="Get Weather", command=self.display_weather).grid(row=1, column=0, columnspan=2, pady=10)
-
-        tk.Label(self.root, textvariable=self.result_text, justify="left", wraplength=400).grid(row=2, column=0, columnspan=2, padx=10, pady=10)
-
-        last_settings = self.user_settings.load()
-        if last_settings and "last_searched_city" in last_settings:
-            self.city_entry.insert(0, last_settings["last_searched_city"])
-
-        self.root.mainloop()
-
-def main() -> None:
-    try:
-        dashboard = WeatherDashboard()
-        dashboard.run()
-    except ValueError as e:
-        print(e)
 
 if __name__ == "__main__":
     main()
+

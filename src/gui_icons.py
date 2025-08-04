@@ -1,0 +1,17 @@
+"""
+Basic icon management for Weather Dashboard using Unicode emojis.
+"""
+class GUIIcons:
+    WEATHER = "🌦️"
+    TEMPERATURE = "🌡️"
+    HUMIDITY = "💧"
+    WIND = "💨"
+    JOURNAL = "📔"
+    COMPARE = "📊"
+    MASCOT = "🐧"
+    THEME_DAY = "🌞"
+    THEME_NIGHT = "🌜"
+    EXPORT = "💾"
+    ERROR = "⚠️"
+    SUCCESS = "✅"
+    INFO = "ℹ️"
