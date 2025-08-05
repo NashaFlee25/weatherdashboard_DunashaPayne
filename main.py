@@ -1,5 +1,7 @@
 """
-Weather Dashboard Application
+VibeCast Application
+
+Tune in to your day's weather rhythm.
 
 A modern, user-friendly weather dashboard that provides current weather information,
 historical data tracking, and weather statistics with a clean GUI interface.
@@ -373,7 +375,7 @@ class SettingsManager:
 class WeatherDashboard:
     def __init__(self, root):
         self.root = root
-        self.root.title("Weather Dashboard 🌦️")
+        self.root.title("VibeCast 🌦️")
         self.root.geometry("900x700")  # Increased width for tabbed interface
 
         # Initialize services
@@ -465,7 +467,7 @@ class WeatherDashboard:
         title_row.pack(fill='x', pady=(0, 10))
 
         # Title (left side)
-        title_label = ttk.Label(title_row, text="Weather Dashboard 🌦️",
+        title_label = ttk.Label(title_row, text="VibeCast 🌦️",
                                 font=("Arial", 24, "bold"))
         title_label.pack(side='left')
 
