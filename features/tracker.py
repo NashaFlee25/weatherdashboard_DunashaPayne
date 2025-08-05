@@ -5,6 +5,8 @@ import csv
 import os
 from datetime import datetime
 from collections import Counter
+from typing import List, Dict
+from pathlib import Path
 
 
 def save_weather_to_csv(weather_data, filename="weather_history.csv"):
@@ -117,3 +119,65 @@ def get_weather_phrase(temperature, description):
         return "☁️ Cozy clouds above!"
     else:
         return "🌈 Enjoy your day!"
+
+
+def load_history() -> List[Dict]:
+    """
+    Load weather history from CSV file.
+    
+    Returns:
+        List of dictionaries containing history data with keys:
+        'timestamp', 'city', 'temp', 'condition'
+    """
+    history_data = []
+    
+    try:
+        # Use the same filename as save_weather_to_csv function
+        csv_path = "weather_history.csv"
+        
+        if not os.path.exists(csv_path):
+            return history_data
+        
+        with open(csv_path, 'r', newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            
+            for row in reader:
+                # Extract data with fallback for missing fields
+                timestamp = row.get("timestamp", "").strip()
+                city = row.get("city", "").strip()
+                country = row.get("country", "").strip()
+                temperature = row.get("temperature", "").strip()
+                description = row.get("description", "").strip()
+                
+                # Format city display
+                if city and country:
+                    city_display = f"{city}, {country}"
+                else:
+                    city_display = city or "Unknown"
+                
+                # Format temperature display
+                if temperature:
+                    try:
+                        temp_value = float(temperature)
+                        temp_display = f"{temp_value:.1f}°C"
+                    except ValueError:
+                        temp_display = temperature
+                else:
+                    temp_display = "N/A"
+                
+                # Format condition display
+                condition_display = description.title() if description else "N/A"
+                
+                # Only add entries with at least timestamp and city
+                if timestamp and city:
+                    history_data.append({
+                        "timestamp": timestamp,
+                        "city": city_display,
+                        "temp": temp_display,
+                        "condition": condition_display
+                    })
+    
+    except Exception as e:
+        print(f"Error loading history from CSV: {e}")
+    
+    return history_data

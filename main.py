@@ -60,7 +60,8 @@ from features.tracker import (
     read_last_n_entries,
     calculate_stats_from_csv,
     get_weather_phrase,
-    get_personalized_greeting
+    get_personalized_greeting,
+    load_history
 )
 
 
@@ -521,18 +522,21 @@ class WeatherDashboard:
         self.forecast_frame = ttk.Frame(self.notebook)
         self.chart_frame = ttk.Frame(self.notebook)
         self.comparison_frame = ttk.Frame(self.notebook)
+        self.history_frame = ttk.Frame(self.notebook)
 
         # Add tabs to notebook
         self.notebook.add(self.current_frame, text="Current Weather")
         self.notebook.add(self.forecast_frame, text="5-Day Forecast")
         self.notebook.add(self.chart_frame, text="Temp Trend")
         self.notebook.add(self.comparison_frame, text="City Comparison")
+        self.notebook.add(self.history_frame, text="History")
 
         # Setup each tab
         self.setup_current_weather_tab()
         self.setup_forecast_tab()
         self.setup_chart_tab()
         self.setup_comparison_tab()
+        self.setup_history_tab()
 
         # Control buttons at bottom
         control_frame = ttk.Frame(main_container)
@@ -657,6 +661,81 @@ class WeatherDashboard:
                                      font=("Arial", 14),
                                      justify='center')
         placeholder_label.grid(row=0, column=0, sticky="nsew")
+
+    def setup_history_tab(self):
+        """Setup the history tracker tab"""
+        # History display frame
+        history_display_frame = ttk.LabelFrame(self.history_frame, text="Weather Search History 📜", padding="20")
+        history_display_frame.pack(fill='both', expand=True, padx=10, pady=10)
+
+        # Control frame for refresh button
+        control_frame = ttk.Frame(history_display_frame)
+        control_frame.pack(fill='x', pady=(0, 10))
+
+        self.refresh_history_btn = ttk.Button(control_frame, text="Refresh History 🔄", 
+                                              command=self.refresh_history)
+        self.refresh_history_btn.pack(side='left')
+
+        # History tree container with scrollbar
+        tree_container = ttk.Frame(history_display_frame)
+        tree_container.pack(fill='both', expand=True)
+
+        # Create treeview for history
+        columns = ("Timestamp", "City", "Temp", "Condition")
+        self.history_tree = ttk.Treeview(tree_container, columns=columns, show="headings", height=15)
+
+        # Configure columns
+        self.history_tree.heading("Timestamp", text="Date & Time")
+        self.history_tree.heading("City", text="City")
+        self.history_tree.heading("Temp", text="Temperature")
+        self.history_tree.heading("Condition", text="Condition")
+
+        self.history_tree.column("Timestamp", width=180, anchor="center")
+        self.history_tree.column("City", width=200, anchor="center")
+        self.history_tree.column("Temp", width=120, anchor="center")
+        self.history_tree.column("Condition", width=200, anchor="center")
+
+        # Add scrollbar
+        history_scrollbar = ttk.Scrollbar(tree_container, orient="vertical", command=self.history_tree.yview)
+        self.history_tree.configure(yscrollcommand=history_scrollbar.set)
+
+        # Pack tree and scrollbar
+        self.history_tree.pack(side="left", fill="both", expand=True)
+        history_scrollbar.pack(side="right", fill="y")
+
+        # Load initial history data
+        self.refresh_history()
+
+    def refresh_history(self):
+        """Refresh the history display with latest data"""
+        try:
+            # Clear existing items
+            for item in self.history_tree.get_children():
+                self.history_tree.delete(item)
+
+            # Load history data
+            history_data = load_history()
+            
+            if not history_data:
+                # Show message when no data available
+                self.history_tree.insert("", "end", values=("No history available", "", "", ""))
+                return
+
+            # Insert data into tree (reverse order to show newest first)
+            for entry in reversed(history_data[-50:]):  # Show last 50 entries, newest first
+                self.history_tree.insert("", "end", values=(
+                    entry["timestamp"],
+                    entry["city"],
+                    entry["temp"],
+                    entry["condition"]
+                ))
+
+        except Exception as e:
+            print(f"Error refreshing history: {e}")
+            # Show error message in tree
+            for item in self.history_tree.get_children():
+                self.history_tree.delete(item)
+            self.history_tree.insert("", "end", values=("Error loading history", str(e), "", ""))
 
     def on_city_selection(self):
         """Handle city selection in dropdown - enable compare button when both cities are selected"""
@@ -1006,6 +1085,8 @@ class WeatherDashboard:
                 self.display_weather(weather_data)
                 # Save to CSV
                 save_weather_to_csv(weather_data)
+                # Refresh history display
+                self.refresh_history()
                 # Save city to settings
                 self.settings_manager.save_last_city(city)
                 self.current_city = city
