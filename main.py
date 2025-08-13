@@ -390,6 +390,10 @@ class WeatherDashboard:
         self.current_theme = self.settings_manager.load_theme()
         self.theme_var = tk.StringVar(value=self.current_theme)
 
+        # Temperature unit dropdown
+        self.unit_options = ["Celsius (°C)", "Fahrenheit (°F)", "Kelvin (K)"]
+        self.unit_var = tk.StringVar(value=self.unit_options[0])
+
         # Load available cities from CSV
         self.available_cities = self.load_cities_from_csv()
 
@@ -475,6 +479,17 @@ class WeatherDashboard:
         # Theme controls (right side of title row)
         theme_frame = ttk.Frame(title_row)
         theme_frame.pack(side='right', padx=(10, 0))
+        
+        # Temperature unit dropdown
+        ttk.Label(theme_frame, text="Unit:", font=("Arial", 12)).pack(side='left', padx=(0, 5))
+        self.unit_dropdown = ttk.Combobox(theme_frame, 
+                                          textvariable=self.unit_var,
+                                          values=self.unit_options,
+                                          state="readonly", 
+                                          width=15,
+                                          font=("Arial", 11))
+        self.unit_dropdown.pack(side='left', padx=(0, 10))
+        self.unit_dropdown.bind('<<ComboboxSelected>>', self.on_unit_change)
         
         ttk.Label(theme_frame, text="Theme:", font=("Arial", 12)).pack(side='left', padx=(0, 5))
         self.theme_dropdown = ttk.Combobox(theme_frame, 
@@ -748,6 +763,51 @@ class WeatherDashboard:
         else:
             self.compare_btn.config(state="disabled")
 
+    def on_unit_change(self, event=None):
+        """Callback for temperature unit change - refresh all displays with new unit"""
+        # Refresh weather display if we have current weather data
+        if hasattr(self, 'current_weather_data') and self.current_weather_data:
+            self.display_weather(self.current_weather_data)
+        
+        # Refresh forecast display if we have forecast data
+        if hasattr(self, 'current_forecast_data') and self.current_forecast_data:
+            self.update_forecast_display(self.current_forecast_data)
+        
+        # Refresh temperature chart if we have chart data
+        if hasattr(self, 'current_chart_data') and self.current_chart_data:
+            self.draw_temperature_chart(self.current_chart_data)
+        
+        # Refresh comparison chart if we have comparison data
+        if hasattr(self, 'current_comparison_data') and self.current_comparison_data:
+            dates, temps1, temps2, label1, label2 = self.current_comparison_data
+            self.draw_comparison_chart(dates, temps1, temps2, label1, label2)
+
+    def convert_temperature(self, temp_c):
+        """Convert Celsius temperature to selected unit and return formatted string"""
+        unit = self.unit_var.get()
+        if unit == "Celsius (°C)":
+            return f"{temp_c:.1f}°C"
+        elif unit == "Fahrenheit (°F)":
+            temp_f = temp_c * 9/5 + 32
+            return f"{temp_f:.1f}°F"
+        elif unit == "Kelvin (K)":
+            temp_k = temp_c + 273.15
+            return f"{temp_k:.2f}K"
+        else:
+            return f"{temp_c:.1f}°C"
+
+    def convert_temperature_value(self, temp_c):
+        """Convert Celsius temperature to selected unit and return numerical value"""
+        unit = self.unit_var.get()
+        if unit == "Celsius (°C)":
+            return temp_c
+        elif unit == "Fahrenheit (°F)":
+            return temp_c * 9/5 + 32
+        elif unit == "Kelvin (K)":
+            return temp_c + 273.15
+        else:
+            return temp_c
+
     def compare_cities(self):
         """Compare temperature data between two cities"""
         city1 = self.city1_var.get().strip()
@@ -816,6 +876,9 @@ class WeatherDashboard:
             data: List of tuples containing (date_string, temperature)
         """
         try:
+            # Store the current chart data for unit conversion
+            self.current_chart_data = data
+            
             # Clear existing chart
             for widget in self.chart_container.winfo_children():
                 widget.destroy()
@@ -831,24 +894,30 @@ class WeatherDashboard:
             fig = Figure(figsize=(8, 5), dpi=80)
             ax = fig.add_subplot(111)
 
-            # Unpack data
-            dates, temps = zip(*data)
+            # Unpack data and convert temperatures
+            dates, temps_c = zip(*data)
+            temps = [self.convert_temperature_value(temp_c) for temp_c in temps_c]
 
             # Create bar chart
             bars = ax.bar(dates, temps, color='lightblue', edgecolor='darkblue', alpha=0.8, width=0.6)
 
+            # Get unit symbol for labels
+            unit = self.unit_var.get()
+            unit_symbol = "°C" if "Celsius" in unit else "°F" if "Fahrenheit" in unit else "K"
+
             # Customize chart
             ax.set_title("5-Day Temperature Trend", fontsize=16, fontweight='bold', pad=20)
-            ax.set_ylabel("Temperature (°C)", fontsize=14)
+            ax.set_ylabel(f"Temperature ({unit_symbol})", fontsize=14)
             ax.tick_params(axis='x', rotation=0, labelsize=12)
             ax.tick_params(axis='y', labelsize=12)
             ax.grid(True, alpha=0.3, axis='y')
 
             # Add temperature labels on bars
-            for bar, temp in zip(bars, temps):
+            for bar, temp_c in zip(bars, temps_c):
                 height = bar.get_height()
+                temp_str = self.convert_temperature(temp_c)
                 ax.text(bar.get_x() + bar.get_width()/2., height + 0.5,
-                       f'{temp}°C', ha='center', va='bottom', fontsize=11, fontweight='bold')
+                       temp_str, ha='center', va='bottom', fontsize=11, fontweight='bold')
 
             # Set y-axis limits for better visibility
             if temps:
@@ -889,6 +958,9 @@ class WeatherDashboard:
             label2: Name of city 2
         """
         try:
+            # Store the current comparison data for unit conversion
+            self.current_comparison_data = (dates, temps1, temps2, label1, label2)
+            
             # Clear existing chart
             for widget in self.comparison_chart_frame.winfo_children():
                 widget.destroy()
@@ -905,32 +977,41 @@ class WeatherDashboard:
             fig = Figure(figsize=(10, 6), dpi=80)
             ax = fig.add_subplot(111)
 
+            # Convert temperatures to selected unit
+            converted_temps1 = [self.convert_temperature_value(temp) for temp in temps1]
+            converted_temps2 = [self.convert_temperature_value(temp) for temp in temps2]
+
             # Set up bar positions
             x = np.arange(len(dates))
             width = 0.35
 
             # Create side-by-side bars
-            bars1 = ax.bar(x - width/2, temps1, width, label=label1, color='lightblue', alpha=0.8, edgecolor='darkblue')
-            bars2 = ax.bar(x + width/2, temps2, width, label=label2, color='lightcoral', alpha=0.8, edgecolor='darkred')
+            bars1 = ax.bar(x - width/2, converted_temps1, width, label=label1, color='lightblue', alpha=0.8, edgecolor='darkblue')
+            bars2 = ax.bar(x + width/2, converted_temps2, width, label=label2, color='lightcoral', alpha=0.8, edgecolor='darkred')
+
+            # Get unit symbol for labels
+            unit = self.unit_var.get()
+            unit_symbol = "°C" if "Celsius" in unit else "°F" if "Fahrenheit" in unit else "K"
 
             # Customize chart
             ax.set_title(f"5-Day Temperature Comparison: {label1} vs {label2}", fontsize=16, fontweight='bold', pad=20)
-            ax.set_ylabel("Temperature (°C)", fontsize=14)
+            ax.set_ylabel(f"Temperature ({unit_symbol})", fontsize=14)
             ax.set_xlabel("Date", fontsize=14)
             ax.set_xticks(x)
             ax.set_xticklabels(dates, rotation=45, ha='right')
             ax.legend(fontsize=12)
             ax.grid(True, alpha=0.3, axis='y')
 
-            # Add temperature labels on bars
-            for bars, temps in [(bars1, temps1), (bars2, temps2)]:
-                for bar, temp in zip(bars, temps):
+            # Add temperature labels on bars using original Celsius values
+            for bars, temps_c in [(bars1, temps1), (bars2, temps2)]:
+                for bar, temp_c in zip(bars, temps_c):
                     height = bar.get_height()
+                    temp_str = self.convert_temperature(temp_c)
                     ax.text(bar.get_x() + bar.get_width()/2., height + 0.5,
-                           f'{temp}°C', ha='center', va='bottom', fontsize=10, fontweight='bold')
+                           temp_str, ha='center', va='bottom', fontsize=10, fontweight='bold')
 
             # Set y-axis limits for better visibility
-            all_temps = temps1 + temps2
+            all_temps = converted_temps1 + converted_temps2
             if all_temps:
                 min_temp = min(all_temps)
                 max_temp = max(all_temps)
@@ -1115,10 +1196,13 @@ class WeatherDashboard:
 
     def display_weather(self, weather_data):
         """Display weather data in the GUI"""
+        # Store the current weather data for unit conversion
+        self.current_weather_data = weather_data
+        
         self.city_label.config(text=f"{weather_data['city']}, {weather_data['country']}")
-        self.temp_label.config(text=f"🌡️ Temperature: {weather_data['temperature']:.1f}°C")
+        self.temp_label.config(text=f"🌡️ Temperature: {self.convert_temperature(weather_data['temperature'])}")
         self.desc_label.config(text=f"🌦️ Condition: {weather_data['description'].title()}")
-        self.feels_like_label.config(text=f"🤗 Feels like: {weather_data['feels_like']:.1f}°C")
+        self.feels_like_label.config(text=f"🤗 Feels like: {self.convert_temperature(weather_data['feels_like'])}")
         self.humidity_label.config(text=f"💧 Humidity: {weather_data['humidity']}%")
         self.pressure_label.config(text=f"🔽 Pressure: {weather_data['pressure']} hPa")
 
@@ -1129,10 +1213,13 @@ class WeatherDashboard:
     def update_forecast_display(self, forecast_data: List[Dict]):
         """Update the forecast display with new data"""
         try:
+            # Store the current forecast data for unit conversion
+            self.current_forecast_data = forecast_data
+            
             for i, day_data in enumerate(forecast_data[:5]):  # Ensure max 5 days
                 if i < len(self.forecast_vars):
                     self.forecast_vars[i]['date'].set(day_data['date'])
-                    self.forecast_vars[i]['temp'].set(f"{day_data['temp']}°C")
+                    self.forecast_vars[i]['temp'].set(self.convert_temperature(day_data['temp']))
                     self.forecast_vars[i]['icon'].set(GUIIcons.get_weather_icon(day_data['condition_code']))
 
             # Clear remaining slots if less than 5 days
